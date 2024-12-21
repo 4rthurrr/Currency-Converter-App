@@ -1,4 +1,5 @@
-# Welcome to your Expo app 👋
+# Welcome to Currency Converter App 👋![Screenshot 2024-12-22 012246](https://github.com/user-attachments/assets/c405b8b1-4236-4cc8-8aba-6ee03e428811)
+
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
