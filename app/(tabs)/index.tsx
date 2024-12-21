@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  ActivityIndicator, 
+  Platform 
+} from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
+import { ThemeContext } from '../../context/ThemeContext';
+
 
 interface ConversionResult {
   amount: string;
@@ -9,21 +20,38 @@ interface ConversionResult {
   result: string;
 }
 
+const currencyOptions = [
+  { label: 'US Dollar', value: 'USD' },
+  { label: 'Sri Lanka Rupee', value: 'LKR' },
+  { label: 'Euro', value: 'EUR' },
+  { label: 'British Pound', value: 'GBP' },
+  { label: 'Japanese Yen', value: 'JPY' },
+  { label: 'Indian Rupee', value: 'INR' },
+  { label: 'Australian Dollar', value: 'AUD' },
+  { label: 'Canadian Dollar', value: 'CAD' },
+  { label: 'Swiss Franc', value: 'CHF' },
+  { label: 'Chinese Yuan', value: 'CNY' },
+
+  // Add more currencies as needed
+];
+
 const ConverterScreen = () => {
   const [amount, setAmount] = useState('');
-  const [baseCurrency, setBaseCurrency] = useState('');
+  const [baseCurrency, setBaseCurrency] = useState('USD');
   const [targetCurrency, setTargetCurrency] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastResult, setLastResult] = useState<ConversionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
   const validateInput = (): boolean => {
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      Alert.alert('Invalid Input', 'Please enter a valid positive number');
+    if (isNaN(numAmount) || numAmount <= 0 || !/^\d+(\.\d+)?$/.test(amount)) {
+      setError('Please enter a valid positive number');
       return false;
     }
     if (!baseCurrency || !targetCurrency) {
-      Alert.alert('Missing Selection', 'Please select both currencies');
+      setError('Please select both currencies');
       return false;
     }
     return true;
@@ -33,9 +61,10 @@ const ConverterScreen = () => {
     if (!validateInput()) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch(
-        `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`
+        `https://api.exchangerate-api.com/v4//latest/${baseCurrency}`
       );
       
       if (!response.ok) {
@@ -56,27 +85,15 @@ const ConverterScreen = () => {
         to: targetCurrency,
         result: converted
       });
-
     } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to convert currency'
-      );
+      setError((error as Error).message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const currencyOptions = [
-    { label: 'US Dollar', value: 'USD' },
-    { label: 'Euro', value: 'EUR' },
-    { label: 'British Pound', value: 'GBP' },
-    { label: 'Japanese Yen', value: 'JPY' },
-    { label: 'Australian Dollar', value: 'AUD' }
-  ];
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, isDarkMode ? styles.darkContainer : styles.lightContainer]}>
       <View style={styles.card}>
         <Text style={styles.title}>Currency Converter</Text>
         
@@ -89,93 +106,130 @@ const ConverterScreen = () => {
           maxLength={10}
         />
 
+        <Text style={styles.label}>Select base currency</Text>
         <View style={styles.pickerContainer}>
           <RNPickerSelect
             style={pickerSelectStyles}
-            placeholder={{ label: 'Select base currency', value: null }}
+            placeholder={{ label: 'Select base currency', value: '' }}
             onValueChange={setBaseCurrency}
-            value={baseCurrency}
+            value={baseCurrency || ''}
             items={currencyOptions}
           />
         </View>
 
+        <Text style={styles.label}>Select target currency</Text>
         <View style={styles.pickerContainer}>
           <RNPickerSelect
             style={pickerSelectStyles}
-            placeholder={{ label: 'Select target currency', value: null }}
+            placeholder={{ label: 'Select target currency', value: '' }}
             onValueChange={setTargetCurrency}
-            value={targetCurrency}
+            value={targetCurrency || ''}
             items={currencyOptions}
           />
         </View>
 
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleConvert}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Convert</Text>
-          )}
+        {error && <Text style={styles.errorText}>{error}</Text>}
+
+        <TouchableOpacity style={styles.button} onPress={handleConvert}>
+          <Text style={styles.buttonText}>Convert</Text>
         </TouchableOpacity>
+
+        {isLoading && <ActivityIndicator size="large" color="#007AFF" />}
 
         {lastResult && (
           <View style={styles.resultContainer}>
-            <Text style={styles.resultLabel}>Result:</Text>
-            <Text style={styles.resultValue}>
-              {lastResult.amount} {lastResult.from} = {lastResult.result} {lastResult.to}
-            </Text>
+            <Text style={styles.resultLabel}>Converted Amount:</Text>
+            <Text style={styles.resultValue}>{lastResult.result}</Text>
           </View>
         )}
+
+        <TouchableOpacity style={styles.themeButton} onPress={toggleTheme}>
+          <Text style={styles.themeButtonText}>
+            Switch to {isDarkMode ? 'Light' : 'Dark'} Mode
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
+    
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  darkContainer: {
+    backgroundColor: '#333',
+  },
+  lightContainer: {
+    backgroundColor: '#fff',
   },
   card: {
-    margin: 20,
-    padding: 20,
     backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    borderRadius: 10,
+    padding: 20,
+    margin: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.22,
+        shadowRadius: 2.22,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
     textAlign: 'center',
+    marginVertical: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginVertical: 10,
   },
   input: {
-    height: 50,
+    height: 40,
+    borderColor: 'gray',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-    backgroundColor: '#fff',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    borderRadius: 5,
   },
   pickerContainer: {
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    marginVertical: 10,
+    backgroundColor: 'white',
+    borderRadius: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.22,
+        shadowRadius: 2.22,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  errorText: {
+    color: 'red',
+    marginTop: 10,
+    textAlign: 'center',
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000000',
     padding: 15,
     borderRadius: 8,
     marginTop: 10,
@@ -200,11 +254,18 @@ const styles = StyleSheet.create({
   resultValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
   },
-  buttonDisabled: {
-    backgroundColor: '#ccc'
-  }
+  themeButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: '#000000',
+    borderRadius: 8,
+  },
+  themeButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+  },
 });
 
 const pickerSelectStyles = StyleSheet.create({
@@ -212,14 +273,26 @@ const pickerSelectStyles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 12,
     paddingHorizontal: 10,
+    borderRadius: 5,
     color: 'black',
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   inputAndroid: {
     fontSize: 16,
+    paddingVertical: 12,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 5,
     color: 'black',
-  },
+    backgroundColor: 'white',
+    elevation: 3,
+  }
 });
 
 export default ConverterScreen;
